@@ -5,7 +5,7 @@
     <Version>1.0.0.0</Version>
     <Authors>Jason Davis</Authors>
     <Company>jasondavis303</Company>
-    <Description>Just a lib to avoid some boilderplate code I have to often write whenever I want to run a command line program and get it's output (like ffmpeg)</Description>
+    <Description>Just a lib to avoid some boilerplate code I have to often write whenever I want to run a command line program and get it's output (like ffmpeg)</Description>
     <Copyright>jasondavis303</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/jasondavis303/EasyProc</PackageProjectUrl>
