@@ -76,7 +76,7 @@ namespace EasyProc
 
         private void RedirectedThread(StreamReader sr, EventHandler<CommandOutputEventArgs> eh, IProgress<CommandProgress> progress)
         {
-            if (sr == null)
+            if (sr == null && progress == null)
                 return;
 
             string line;
