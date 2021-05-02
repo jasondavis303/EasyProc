@@ -4,11 +4,14 @@ namespace EasyProc
 {
     public class CommandOutputEventArgs : EventArgs
     {
-        public string Text { get; private set; }
-
-        public CommandOutputEventArgs(string text)
+        internal CommandOutputEventArgs(string text, DateTime started)
         {
             Text = text;
+            RunTime = DateTime.Now - started;
         }
+
+        public string Text { get; }
+
+        public TimeSpan RunTime { get; }
     }
 }

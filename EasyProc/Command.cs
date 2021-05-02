@@ -10,10 +10,11 @@ namespace EasyProc
     {
         public event EventHandler<CommandOutputEventArgs> OnStdOut;
         public event EventHandler<CommandOutputEventArgs> OnStdErr;
-        public event EventHandler OnComplete;
+        public event EventHandler<CommandCompleteEventArgs> OnComplete;
 
-        Process process = null;
-       
+        Process _process = null;
+        DateTime _started;
+
         public Command() { }
 
         ~Command()
@@ -24,56 +25,53 @@ namespace EasyProc
 
         private void CancelProcess()
         {
-            if (process != null && !process.HasExited)
-                process.Kill();
+            if (_process != null && !_process.HasExited)
+                _process.Kill();
         }
 
         public Task<int> RunAsync(string program, string args = null, CancellationToken cancellationToken = default) => RunAsync(program, args, null, null, cancellationToken);
 
         public async Task<int> RunAsync(string program, string args = null, IProgress<CommandProgress> stdOutProgress = null, IProgress<CommandProgress> stdErrProgress = null, CancellationToken cancellationToken = default)
         {
-            if (process != null)
+            if (_process != null)
                 throw new Exception("This instance is already running");
 
+            _started = DateTime.Now;
+            _process = new Process()
+            {
+                StartInfo = new ProcessStartInfo(program, args)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+
+            int ret;
             using (cancellationToken.Register(() => CancelProcess()))
             {
+                _process.Start();
 
-                process = new Process()
-                {
-                    StartInfo = new ProcessStartInfo(program, args)
-                    {
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    }
-                };
+                Task stdoutTask = Task.Run(() => RedirectedThread(_process.StandardOutput, OnStdOut, stdOutProgress));
+                Task stderrTask = Task.Run(() => RedirectedThread(_process.StandardError, OnStdErr, stdErrProgress));
 
-                process.Start();
-                process.PriorityClass = ProcessPriorityClass.BelowNormal;
-
-                Task stdoutTask = Task.Run(() => RedirectedThread(process.StandardOutput, OnStdOut, stdOutProgress));
-                Task stderrTask = Task.Run(() => RedirectedThread(process.StandardError, OnStdErr, stdErrProgress));
-
-                Task proc = Task.Run(() =>
-                {
-                    process.WaitForExit();
-                });
+                Task proc = Task.Run(() => _process.WaitForExit());
 
                 await Task.WhenAll(proc, stdoutTask, stderrTask).ConfigureAwait(false);
 
-                int ret = process.ExitCode;
-                process.Dispose();
-                process = null;
+                ret = _process.ExitCode;
+                _process.Dispose();
+                _process = null;
 
                 cancellationToken.ThrowIfCancellationRequested();
-
-                OnComplete?.Invoke(this, EventArgs.Empty);
-                stdOutProgress?.Report(new CommandProgress(null, true));
-                stdErrProgress?.Report(new CommandProgress(null, true));
-
-                return ret;
             }
+
+            OnComplete?.Invoke(this, new CommandCompleteEventArgs(ret, _started));
+            stdOutProgress?.Report(new CommandProgress(null, true, _started));
+            stdErrProgress?.Report(new CommandProgress(null, true, _started));
+
+            return ret;
         }
 
         private void RedirectedThread(StreamReader sr, EventHandler<CommandOutputEventArgs> eh, IProgress<CommandProgress> progress)
@@ -84,8 +82,8 @@ namespace EasyProc
             string line;
             while ((line = sr.ReadLine()) != null)
             {
-                eh?.Invoke(this, new CommandOutputEventArgs(line));
-                progress?.Report(new CommandProgress(line, false));
+                eh?.Invoke(this, new CommandOutputEventArgs(line, _started));
+                progress?.Report(new CommandProgress(line, false, _started));
             }
         }
     }
