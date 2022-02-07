@@ -26,7 +26,7 @@ namespace EasyProc
         private void CancelProcess()
         {
             if (_process != null && !_process.HasExited)
-                _process.Kill();
+                _process.Kill(true);
         }
 
         public Task<int> RunAsync(string program, string args = null, CancellationToken cancellationToken = default) => RunAsync(program, args, null, null, cancellationToken);
